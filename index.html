@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart Water Cleaning Robot — IoT Dashboard</title>
+  <meta name="description" content="Real-time IoT dashboard for Smart Water Cleaning Robot powered by ESP32, ThingSpeak, and Blynk." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <header class="header">
+    <div class="header-inner">
+      <div class="brand">
+        <span class="brand-icon">🚤</span>
+        <div class="brand-text">
+          <h1 class="brand-name">AquaBot</h1>
+          <span class="brand-sub">Smart Water Cleaning Robot</span>
+        </div>
+      </div>
+      <div class="header-status">
+        <div class="conn-pill" id="connPill">
+          <span class="conn-dot" id="connDot"></span>
+          <span id="connLabel">Connecting…</span>
+        </div>
+        <div class="refresh-info">
+          <span id="lastUpdated">—</span>
+          <span class="refresh-badge" id="refreshCountdown">⟳ 10s</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="alert-strip" id="alertStrip" hidden>
+    <span id="alertText">⚠️ Alert</span>
+    <button class="alert-close" id="alertClose">✕</button>
+  </div>
+
+  <main class="main-content">
+
+    <section class="section">
+      <h2 class="section-title">📡 Live Telemetry</h2>
+      <div class="cards-grid">
+
+        <!-- Waste Distance -->
+        <article class="card card--waste" id="cardWaste">
+          <div class="card-header">
+            <span class="card-icon">♻️</span>
+            <span class="card-label">Waste Distance</span>
+          </div>
+          <div class="card-value-wrap">
+            <span class="card-value" id="wasteVal">—</span>
+            <span class="card-unit">cm</span>
+          </div>
+          <div class="gauge-bar-wrap">
+            <div class="gauge-bar">
+              <div class="gauge-fill gauge-fill--waste" id="wasteFill"></div>
+            </div>
+            <div class="gauge-labels"><span>0</span><span>150 cm</span></div>
+          </div>
+          <div class="card-tag" id="wasteTag">—</div>
+        </article>
+
+        <!-- Obstacle Distance -->
+        <article class="card card--obs" id="cardObs">
+          <div class="card-header">
+            <span class="card-icon">🚧</span>
+            <span class="card-label">Obstacle Distance</span>
+          </div>
+          <div class="card-value-wrap">
+            <span class="card-value" id="obsVal">—</span>
+            <span class="card-unit">cm</span>
+          </div>
+          <div class="gauge-bar-wrap">
+            <div class="gauge-bar">
+              <div class="gauge-fill gauge-fill--obs" id="obsFill"></div>
+            </div>
+            <div class="gauge-labels"><span>0</span><span>150 cm</span></div>
+          </div>
+          <div class="card-tag" id="obsTag">—</div>
+        </article>
+
+        <!-- Motor RPM -->
+        <article class="card card--rpm" id="cardRpm">
+          <div class="card-header">
+            <span class="card-icon">⚙️</span>
+            <span class="card-label">Motor Speed</span>
+          </div>
+          <div class="card-value-wrap">
+            <span class="card-value" id="rpmVal">—</span>
+            <span class="card-unit">RPM</span>
+          </div>
+          <div class="radial-wrap">
+            <svg viewBox="0 0 120 70" class="radial-svg">
+              <path d="M10,65 A55,55,0,0,1,110,65" fill="none" stroke="#1e293b" stroke-width="10" stroke-linecap="round"/>
+              <path d="M10,65 A55,55,0,0,1,110,65" fill="none" stroke="url(#rpmGrad)" stroke-width="10"
+                    stroke-linecap="round" stroke-dasharray="173" stroke-dashoffset="173" id="rpmArc"/>
+              <defs>
+                <linearGradient id="rpmGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="#06b6d4"/>
+                  <stop offset="100%" stop-color="#8b5cf6"/>
+                </linearGradient>
+              </defs>
+              <text x="60" y="68" text-anchor="middle" font-size="11" fill="#94a3b8" font-family="Inter">RPM</text>
+            </svg>
+          </div>
+        </article>
+
+        <!-- Motor Status -->
+        <article class="card card--motor" id="cardMotor">
+          <div class="card-header">
+            <span class="card-icon">🔌</span>
+            <span class="card-label">Motor Status</span>
+          </div>
+          <div class="status-pill-wrap">
+            <div class="status-pill" id="motorPill">
+              <span class="status-led" id="motorLed"></span>
+              <span class="status-text" id="motorStatus">—</span>
+            </div>
+          </div>
+          <div class="card-sub" id="motorSub">Waiting for data</div>
+        </article>
+
+        <!-- Servo Status -->
+        <article class="card card--servo" id="cardServo">
+          <div class="card-header">
+            <span class="card-icon">🦾</span>
+            <span class="card-label">Servo Position</span>
+          </div>
+          <div class="status-pill-wrap">
+            <div class="status-pill" id="servoPill">
+              <span class="status-led" id="servoLed"></span>
+              <span class="status-text" id="servoStatus">—</span>
+            </div>
+          </div>
+          <div class="servo-vis">
+            <svg viewBox="0 0 100 60" class="servo-svg">
+              <circle cx="50" cy="55" r="8" fill="#1e293b" stroke="#334155" stroke-width="2"/>
+              <line x1="50" y1="55" id="servoArm" x2="50" y2="15"
+                    stroke="url(#servoGrad)" stroke-width="3" stroke-linecap="round"/>
+              <defs>
+                <linearGradient id="servoGrad" x1="0" y1="1" x2="0" y2="0">
+                  <stop offset="0%" stop-color="#f59e0b"/>
+                  <stop offset="100%" stop-color="#ef4444"/>
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+          <div class="card-sub" id="servoAngle">0°</div>
+        </article>
+
+      </div>
+    </section>
+
+    <section class="section">
+      <h2 class="section-title">📈 Live Trends</h2>
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <span>Distance Over Time</span>
+            <span class="chart-legend">
+              <span class="legend-dot" style="background:#06b6d4"></span>Waste
+              <span class="legend-dot" style="background:#f97316"></span>Obstacle
+            </span>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="chartDist"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card-header"><span>Motor RPM Over Time</span></div>
+          <div class="chart-wrap">
+            <canvas id="chartRpm"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2 class="section-title">☁️ ThingSpeak Cloud Charts</h2>
+      <p class="section-desc">Configure your API keys in the <strong>⚙️ Configuration</strong> panel below, then save to load live charts.</p>
+      <div class="ts-charts-row" id="tsChartsRow"></div>
+    </section>
+
+    <section class="section section--api">
+      <h2 class="section-title">🔗 API &amp; Data Mapping</h2>
+      <div class="api-grid">
+        <div class="api-card">
+          <h3>ThingSpeak Fields</h3>
+          <table class="api-table">
+            <thead><tr><th>Field</th><th>Data</th></tr></thead>
+            <tbody>
+              <tr><td>Field 1</td><td>Waste Distance (cm)</td></tr>
+              <tr><td>Field 2</td><td>Obstacle Distance (cm)</td></tr>
+              <tr><td>Field 3</td><td>Motor RPM</td></tr>
+              <tr><td>Field 4</td><td>Motor Status (0/1)</td></tr>
+              <tr><td>Field 5</td><td>Servo Status (0/1)</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="api-card">
+          <h3>Blynk Virtual Pins</h3>
+          <table class="api-table">
+            <thead><tr><th>Pin</th><th>Data / Command</th></tr></thead>
+            <tbody>
+              <tr><td>V1</td><td>Direction (0=Stop,1=Fwd,2=Left,3=Right)</td></tr>
+              <tr><td>V2</td><td>Servo (0=Close, 1=Open)</td></tr>
+              <tr><td>V5</td><td>Waste Distance ← read</td></tr>
+              <tr><td>V6</td><td>Obstacle Distance ← read</td></tr>
+              <tr><td>V7</td><td>Motor RPM ← read</td></tr>
+              <tr><td>V8</td><td>Motor Status ← read</td></tr>
+              <tr><td>V9</td><td>Servo Status ← read</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="api-card api-card--wide">
+          <h3>ThingSpeak REST Endpoint</h3>
+          <pre class="code-block">GET https://api.thingspeak.com/channels/{CHANNEL_ID}/feeds.json
+    ?api_key={READ_API_KEY}&amp;results=20</pre>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ═══════════════════════════════════════════
+         CONFIGURATION PANEL  (localStorage-backed)
+    ════════════════════════════════════════════ -->
+    <section class="section section--config" id="configSection">
+      <h2 class="section-title">⚙️ Configuration</h2>
+      <p class="section-desc">Enter your API credentials below. Values are saved in your browser and never sent anywhere except the respective APIs.</p>
+
+      <div class="config-card" id="configCard">
+
+        <div class="config-grid">
+
+          <!-- ThingSpeak Channel ID -->
+          <div class="cfg-field">
+            <label class="cfg-label" for="cfgChannelId">ThingSpeak Channel ID</label>
+            <div class="cfg-input-wrap">
+              <span class="cfg-icon" aria-hidden="true">📡</span>
+              <input class="cfg-input" id="cfgChannelId" type="text"
+                     placeholder="e.g. 2345678"
+                     autocomplete="off" spellcheck="false" />
+            </div>
+          </div>
+
+          <!-- ThingSpeak Read API Key -->
+          <div class="cfg-field">
+            <label class="cfg-label" for="cfgReadKey">ThingSpeak Read API Key</label>
+            <div class="cfg-input-wrap">
+              <span class="cfg-icon" aria-hidden="true">🔑</span>
+              <input class="cfg-input" id="cfgReadKey" type="text"
+                     placeholder="e.g. XXXXXXXXXXXXXXXX"
+                     autocomplete="off" spellcheck="false" />
+            </div>
+          </div>
+
+          <!-- Blynk Auth Token -->
+          <div class="cfg-field">
+            <label class="cfg-label" for="cfgBlynkToken">Blynk Auth Token</label>
+            <div class="cfg-input-wrap">
+              <span class="cfg-icon" aria-hidden="true">🔐</span>
+              <input class="cfg-input" id="cfgBlynkToken" type="text"
+                     placeholder="e.g. AbCdEf1234..."
+                     autocomplete="off" spellcheck="false" />
+            </div>
+          </div>
+
+        </div><!-- /.config-grid -->
+
+        <!-- Action row -->
+        <div class="cfg-actions">
+          <div class="cfg-mode-wrap">
+            <label class="cfg-label" style="margin-bottom:0">Data Source</label>
+            <div class="cfg-toggle-group">
+              <button class="cfg-mode-btn active" id="btnModeLive" data-mode="live">🌐 Live (ThingSpeak)</button>
+              <button class="cfg-mode-btn"         id="btnModeDemo" data-mode="demo">🎲 Demo</button>
+            </div>
+          </div>
+
+          <div class="cfg-btn-group">
+            <button class="cfg-btn cfg-btn--save" id="cfgSaveBtn">💾 Save &amp; Apply</button>
+            <button class="cfg-btn cfg-btn--clear" id="cfgClearBtn">🗑 Clear</button>
+          </div>
+        </div>
+
+        <!-- Feedback toast -->
+        <div class="cfg-toast" id="cfgToast" aria-live="polite"></div>
+
+      </div><!-- /.config-card -->
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <span>🚤 AquaBot IoT Dashboard</span>
+    <span>ESP32 + ThingSpeak + Blynk</span>
+    <span id="footerTime"></span>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
